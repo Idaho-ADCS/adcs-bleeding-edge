@@ -9,9 +9,9 @@
  * functions (located in supportFunctions.cpp) to properally execute */
 
 //This tests the sensors and makes sure they are reading correctly
-void testFun();
+void testFun(void* pvParameters);
 //This function has the satellite do nothing until something is in UART
-void standby();
+void standby(void* pvParameters);
 //This corrdinates the satellite's rotation
 void orient(const char *direction);
 

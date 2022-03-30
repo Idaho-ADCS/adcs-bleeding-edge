@@ -11,13 +11,14 @@
 #define DRV_10970_H
 
 #include <Arduino.h>
+#include <adcs_pin_definitions.h>
 
 // default pinout for the SAMD51
-const int   DRV_FG = 6,     // frequency/rpm indication pin
-            DRV_FR = 9,     // motor direction pin
-            DRV_BRKMOD = 0, // brake mode (coast/brake), not currently available
-            DRV_PWM = 10,   // pwm output pin
-            DRV_RD = 5;     // lock indication pin
+const int   DRV_FG = FLYWHL_RPM,     // frequency/rpm indication pin
+            DRV_FR = FLYWHL_DIR,     // motor direction pin
+            DRV_BRKMOD = FLYWHL_BRKMOD, // brake mode (coast/brake), not currently available
+            DRV_PWM = FLYWHL_PWM,   // pwm output pin
+            DRV_RD = FLYWHL_LOCKED;     // lock indication pin
 
 enum MotorDirection {REV=0, FWD=1};
 

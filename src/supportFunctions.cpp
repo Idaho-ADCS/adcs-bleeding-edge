@@ -12,11 +12,11 @@ void doCmd(char *cmd)
 {
 	if (cmd[0] == 0xa0) //Binary: 10100000
 	{
-		testFun();
+		testFun(NULL);
 	}
 	else if (cmd[0] == 0xc0) //Binary: 11000000
 	{
-		standby();
+		standby(NULL);
 	}
 	//For now, the direction doesn't matter, but it's set up for later
 	else if (cmd[0] == 0xe0) //Binary: 11100000

@@ -1,10 +1,11 @@
 // Our own headers
-#include "comm.h"
-#include "sensors.h"
+#include "adcs_pin_definitions.h"
+#include "comm.h" 					/* data packets and UART transmission functions */
+#include "sensors.h" 				/* read from sensors into heartbeat packet */
 #include "supportFunctions.h"
 #include "commandFunctions.h"
 #include "DRV_10970.h"
-#include "validation_tests.h"
+#include "validation_tests.h" // tests for functionality
 
 // only include this if test functions are desired
 //#include <test.h>
@@ -16,8 +17,11 @@
 // Standard C/C++ library headers
 #include <stdint.h>
 
-// if defined, enables debug print statements over USB to the serial monitor
-#define DEBUG
+// TESTING DEFINES //////////////////////////////////////////////////////////////
+#define DEBUG 			/* print the serial debug messages over USB connection */
+#define TESTHEART  		/* test if can transmit heartbeat */
+//#define TESTMOTION 	/* test if can spin flywheel */
+/////////////////////////////////////////////////////////////////////////////////
 
 /* NON-RTOS GLOBAL VARIABLES ================================================ */
 
@@ -70,15 +74,15 @@ static void writeUART(void *pvParameters);
 int main(void)
 {
 	#ifdef DEBUG
-    /**
-     * Initialize USB connection to computer. Used to print debug messages.
-     * Baud rate: 115200
-     * Data bits: 8
-     * Parity: none
-     */
-    SERCOM_USB.begin(115200);
-    while (!SERCOM_USB);  // wait for initialization to complete
-    SERCOM_USB.write("USB interface initialized\r\n");
+    	/**
+     	* Initialize USB connection to computer. Used to print debug messages.
+     	* Baud rate: 115200
+     	* Data bits: 8
+     	* Parity: none
+     	*/
+    	SERCOM_USB.begin(115200);
+    	while (!SERCOM_USB);  // wait for initialization to complete
+    	SERCOM_USB.write("USB interface initialized\r\n");
 	#endif
 
     /**
@@ -90,7 +94,7 @@ int main(void)
     SERCOM_UART.begin(115200, SERIAL_8O1);
     while (!SERCOM_UART);  // wait for initialization to complete
 	#ifdef DEBUG
-    SERCOM_USB.write("UART interface initialized\r\n");
+    	SERCOM_USB.write("UART interface initialized\r\n");
 	#endif
 
     /**
@@ -146,20 +150,26 @@ void loop(){
 /* Initialize all the GPIO pins and the builtin LED */
 void init_hardware(void){
 	Serial.println("INIT HARDWARE\n");
+	// INIT SLEEP REG
 	// configure power manager (PM) to enter STANDBY mode on _WFI()
 	PM->SLEEPCFG.bit.SLEEPMODE = 0x4;
 	//while(PM->SLEEPCFG.bit.SLEEPMODE != 0x4); // wait for register to set, cannot sleep
 	while(!PM_INTFLAG_SLEEPRDY); // SLEEPRDY flag must be set before __WFI()
 
+	// INIT GPIO
 	// enable LED
 	pinMode(LED_BUILTIN, OUTPUT);
 	digitalWrite(LED_BUILTIN, HIGH);
 
 	pinMode(9, OUTPUT);
-	digitalWrite(9, HIGH);
+	digitalWrite(9, HIGH); // set the direction pin HIGH??
 
 	pinMode(10, OUTPUT);
-	analogWrite(10, 127);
+	analogWrite(10, 0); // set the PWM pin to 0%
+
+	// INIT INTERRUPTS
+	// TODO: setup UART interrupt in init_hardware
+
 
 }
 
@@ -214,21 +224,21 @@ void init_sensors(void){
     while (IMU1.status != ICM_20948_Stat_Ok);  // wait for initialization to
                                                // complete
 	#ifdef DEBUG
-    SERCOM_USB.write("IMU1 initialized\r\n");
+    	SERCOM_USB.write("IMU1 initialized\r\n");
 	#endif
 
 	#ifdef TWO_IMUS
-	/**
-	 * Initialize second IMU
-	 * Address: 0x68 or 0x69
-	 */
-    IMU2.begin(SERCOM_I2C, AD0_VAL^1);  // initialize other IMU with opposite
+		/**
+	 	* Initialize second IMU
+	 	* Address: 0x68 or 0x69
+	 	*/
+    	IMU2.begin(SERCOM_I2C, AD0_VAL^1);  // initialize other IMU with opposite
 										// value for bit 0
-    while (IMU2.status != ICM_20948_Stat_Ok);  // wait for initialization to
+    	while (IMU2.status != ICM_20948_Stat_Ok);  // wait for initialization to
                                                // complete
-	#ifdef DEBUG
-    SERCOM_USB.write("IMU2 initialized\r\n");
-	#endif
+		#ifdef DEBUG
+    		SERCOM_USB.write("IMU2 initialized\r\n");
+		#endif
 	#endif
 
 	/**
@@ -250,7 +260,7 @@ void init_sensors(void){
     ina209.writeCal(0x7fff);
 
 	#ifdef DEBUG
-    SERCOM_USB.write("INA209 initialized\r\n");
+    	SERCOM_USB.write("INA209 initialized\r\n");
 	#endif
 
 }
@@ -263,12 +273,18 @@ void init_rtos_architecture(void){
 	uint8_t mode = MODE_TEST;
 	xQueueSend(modeQ, (void*)&mode, (TickType_t)0);
 
-    //xTaskCreate(readUART, "Read UART", 2048, NULL, 1, NULL);
-    xTaskCreate(writeUART, "Write UART", 2048, NULL, 1, NULL);
-	//xTaskCreate(basic_motion1, "BASIC MOTION TEST", 256, NULL, 1, NULL);
+    xTaskCreate(readUART, "Read UART", 2048, NULL, 1, NULL);
+    //xTaskCreate(writeUART, "Write UART", 2048, NULL, 1, NULL); // test function to send heartbeat every half-second
+
+    // TESTS
+    #ifdef TESTHEART
+    	xTaskCreate(basic_heartbeat, "BASIC HEARTBEAT TEST", 256, NULL, 1, NULL);
+    #elif TESTMOTION
+		xTaskCreate(basic_motion, "BASIC MOTION TEST", 256, NULL, 1, NULL);
+    #endif
 
 	#ifdef DEBUG
-    SERCOM_USB.write("Tasks created\r\n");
+    	SERCOM_USB.write("Tasks created\r\n");
 	#endif
 }
 
@@ -295,7 +311,7 @@ static void readUART(void *pvParameters)
 	uint8_t mode;
 
 	#ifdef DEBUG
-    char cmd_str[8];  // used to print command value to serial monitor
+    	char cmd_str[8];  // used to print command value to serial monitor
 	#endif
 
     while (1)
@@ -346,49 +362,5 @@ static void readUART(void *pvParameters)
         }
 
 		// vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
-
-/**
- * @brief
- * Reads magnetometer and gyroscope values from IMU and writes them to UART
- * every 0.5 seconds while ADCS is in test mode.
- *
- * @param[in] pvParameters  Unused but required by FreeRTOS. Program will not
- * compile without this parameter. When a task is instantiated from this
- * function, a set of initialization arguments or NULL is passed in as
- * pvParameters, so pvParameters must be declared even if it is not used.
- *
- * @return None
- */
-static void writeUART(void *pvParameters)
-{
-	uint8_t mode;
-	ADCSdata data_packet;
-
-	#ifdef DEBUG
-	char mode_str[8];
-	#endif
-
-    while (1)
-    {
-		xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
-
-        if (mode == MODE_TEST)
-        {
-			data_packet.setStatus(STATUS_OK);
-			readIMU(data_packet);
-			readINA(data_packet);
-			data_packet.computeCRC();
-			data_packet.send();  // send to TES
-			#ifdef DEBUG
-			// SERCOM_USB.write("Wrote to UART\r\n");
-			// printScaledAGMT(&IMU1);
-			#endif
-
-			data_packet.clear();
-        }
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }

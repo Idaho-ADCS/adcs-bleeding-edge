@@ -11,14 +11,14 @@ extern ICM_20948_I2C IMU2;
 extern DRV10970* DRV;
 
 //This tests the sensors and makes sure they are reading correctly
-void testFun()
+void testFun(void* pvParameters)
 {
 	//Call test/test.cpp?
 	return;
 }
 
 //This will loop indefinately until there is something in UART
-void standby()
+void standby(void* pvParameters)
 {
 	//Delay then return?
 	//In standby, auto try and detumble? Since this is the first mode...
