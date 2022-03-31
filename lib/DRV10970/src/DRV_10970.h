@@ -11,7 +11,7 @@
 #define DRV_10970_H
 
 #include <Arduino.h>
-#include <adcs_pin_definitions.h>
+#include <samd51_pin_definitions.h>
 
 // default pinout for the SAMD51
 const int   DRV_FG = FLYWHL_RPM,     // frequency/rpm indication pin

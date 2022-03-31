@@ -1,5 +1,5 @@
 // Our own headers
-#include "adcs_pin_definitions.h"
+#include "samd51_pin_definitions.h"
 #include "comm.h" 					/* data packets and UART transmission functions */
 #include "sensors.h" 				/* read from sensors into heartbeat packet */
 #include "supportFunctions.h"
@@ -41,6 +41,27 @@ INA209 ina209(0x40);
 DRV10970 flywhl;
 
 /* RTOS GLOBAL VARIABLES ==================================================== */
+bool flywhl_is_spinning = false;		// flywheel flag, if set then flywheel is spinning
+bool magnetorquer_on = false;			// magnetorquer flag, if set then it is on so don't read magnetometer
+
+/* ISRs ===================================================================== */
+// none currently
+
+/* CORE FUNCTIONS =========================================================== */
+void state_machine_transition(uint8_t command);	// takes the new command and changes system mode(modeQ) to reflect that new state
+
+/* HELPER FUNCTIONS ========================================================= */
+void init_hardware(void);
+void init_PWM_50kHz(void);				// set PWM output on a pin to 50kHz instead of default
+void init_sensors(void);
+void init_rtos_architecture(void);
+
+/* RTOS TASK DECLARATIONS =================================================== */
+static void readUART(void *pvParameters);
+static void writeUART(void *pvParameters);
+
+/* RTOS HANDLES ============================================================= */
+TaskHandle_t* readUART_h;
 
 /**
  * @brief
@@ -50,18 +71,6 @@ DRV10970 flywhl;
  *   MODE_TEST    (1)
  */
 QueueHandle_t modeQ;
-
-/* HELPER FUNCTIONS ========================================================= */
-
-void init_hardware(void);
-void init_PWM_50kHz(void);				// set PWM output on a pin to 50kHz instead of default
-void init_sensors(void);
-void init_rtos_architecture(void);
-
-/* RTOS TASK DECLARATIONS =================================================== */
-
-static void readUART(void *pvParameters);
-static void writeUART(void *pvParameters);
 
 /* "MAIN" =================================================================== */
 
@@ -166,11 +175,6 @@ void init_hardware(void){
 
 	pinMode(10, OUTPUT);
 	analogWrite(10, 0); // set the PWM pin to 0%
-
-	// INIT INTERRUPTS
-	// TODO: setup UART interrupt in init_hardware
-
-
 }
 
 /*
@@ -273,7 +277,7 @@ void init_rtos_architecture(void){
 	uint8_t mode = MODE_TEST;
 	xQueueSend(modeQ, (void*)&mode, (TickType_t)0);
 
-    xTaskCreate(readUART, "Read UART", 2048, NULL, 1, NULL);
+    xTaskCreate(readUART, "Read UART", 2048, NULL, 1, readUART_h);
     //xTaskCreate(writeUART, "Write UART", 2048, NULL, 1, NULL); // test function to send heartbeat every half-second
 
     // TESTS
@@ -301,8 +305,6 @@ void init_rtos_architecture(void){
  * pvParameters, so pvParameters must be declared even if it is not used.
  *
  * @return None
- *
- * TODO: Remove polling and invoke this task using an interrupt instead.
  */
 static void readUART(void *pvParameters)
 {
@@ -326,12 +328,7 @@ static void readUART(void *pvParameters)
             {
 				if (cmd_packet.checkCRC())
 				{
-					// process command if CRC is valid
-					if (cmd_packet.getCommand() == CMD_TEST)
-						mode = MODE_TEST;
-
-					if (cmd_packet.getCommand() == CMD_STANDBY)
-						mode = MODE_STANDBY;
+					state_machine_transition(cmd_packet); // publish mode, get ready to enter it too
 				}
 				else
                 {
@@ -341,26 +338,77 @@ static void readUART(void *pvParameters)
 					response.send();
 				}
 
-				xQueueOverwrite(modeQ, (void*)&mode);  // enter specified mode
-
 				#ifdef DEBUG
-                // convert int to string for USB monitoring
-                sprintf(cmd_str, "0x%02x", cmd_packet.getCommand());
+	                // convert int to string for USB monitoring
+	                sprintf(cmd_str, "0x%02x", cmd_packet.getCommand());
 
-                // print command value to USB
-                SERCOM_USB.print("Command received: ");
-                SERCOM_USB.print(cmd_str);
-                SERCOM_USB.print("\r\n");
+	                // print command value to USB
+	                SERCOM_USB.print("Command received: ");
+	                SERCOM_USB.print(cmd_str);
+	                SERCOM_USB.print("\r\n");
 
-                if (cmd_packet.getCommand() == CMD_TEST)
-                    SERCOM_USB.print("Entering test mode\r\n");
+	                if (cmd_packet.getCommand() == CMD_TEST)
+	                    SERCOM_USB.print("Entering test mode\r\n");
 
-                if (cmd_packet.getCommand() == CMD_STANDBY)
-                    SERCOM_USB.print("Entering standby mode\r\n");
+	                if (cmd_packet.getCommand() == CMD_STANDBY)
+	                    SERCOM_USB.print("Entering standby mode\r\n");
 				#endif
             }
         }
 
-		// vTaskDelay(1000 / portTICK_PERIOD_MS);
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
+}
+
+/*
+ * Handles transition from the current mode (modeQ) to the new mode selected by the input command. 
+ */
+void state_machine_transition(TEScommand cmand){
+	// set new state from the command
+	uint8_t mode = cmand.getCommand();
+	uint8_t curr_mode; 
+	// get the current state to compare against	
+	xQueuePeek(modeQ, curr_mode, 0);
+	// make sure we are entering a new state
+	if(mode == curr_mode){ // if not, exit
+		return;
+	}
+
+	bool command_is_valid = true;
+
+	switch(mode){
+		case CMD_TEST:
+			// do test command stuff
+			break;
+
+		case CMD_STANDBY:
+			// print heartbeat regularly turn off actuators
+			if(magnetorquer_on){
+				// TODO: SM turn magnetorquer off
+			}
+			if(flywhl_is_spinning){
+				// TODO: SM turn off the flywheel
+			}
+			break;
+		
+		// TODO: SM fill out the other modes with functional code
+		case ORIENT_DEFAULT: // should be orienting to something like X+
+		case ORIENT_X_POS:
+		case ORIENT_Y_POS:
+		case ORIENT_X_NEG:
+		case ORIENT_Y_NEG:
+
+		default: // do nothing
+			command_is_valid = false;
+			#ifdef DEBUG
+				Serial.println("HIT AN UNKNOWN OR UNIMPLEMENTED COMMAND");
+			#endif
+	}
+
+	if(command_is_valid){
+		xQueueOverwrite(modeQ, (void*)&mode);  // enter specified mode
+
+		// TODO: SM init the new mode, maybe turn off an unneeded actuator? clear some data?
+	}
+
 }
