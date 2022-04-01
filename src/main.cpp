@@ -48,7 +48,7 @@ bool magnetorquer_on = false;			// magnetorquer flag, if set then it is on so do
 // none currently
 
 /* CORE FUNCTIONS =========================================================== */
-void state_machine_transition(uint8_t command);	// takes the new command and changes system mode(modeQ) to reflect that new state
+void state_machine_transition(TEScommand);	// takes the new command and changes system mode(modeQ) to reflect that new state
 
 /* HELPER FUNCTIONS ========================================================= */
 void init_hardware(void);
@@ -195,7 +195,7 @@ void init_PWM_50kHz(void){
 	                      GCLK_PCHCTRL_GEN_GCLK7;    // Connect generic clock 7 to TCC0
 
 	// Enable the peripheral multiplexer on pin D7
-	PORT->Group[g_APinDescription[DRV_PWM].ulPort].PINCFG[g_APinDescription[DRV_PWM].ulPin].bit.PMUXEN = 1;
+	PORT->Group[g_APinDescription[FLYWHL_PWM_PIN].ulPort].PINCFG[g_APinDescription[DRV_PWM].ulPin].bit.PMUXEN = 1;
 
 	// Set the D7 (PORT_PB12) peripheral multiplexer to peripheral (even port number) E(6): TCC0, Channel 0
 	PORT->Group[g_APinDescription[DRV_PWM].ulPort].PMUX[g_APinDescription[DRV_PWM].ulPin >> 1].reg |= PORT_PMUX_PMUXE(6);
@@ -366,9 +366,9 @@ static void readUART(void *pvParameters)
 void state_machine_transition(TEScommand cmand){
 	// set new state from the command
 	uint8_t mode = cmand.getCommand();
-	uint8_t curr_mode; 
+	uint8_t curr_mode = CMD_TEST; 
 	// get the current state to compare against	
-	xQueuePeek(modeQ, curr_mode, 0);
+	xQueuePeek(modeQ, (void*)curr_mode, 0);
 	// make sure we are entering a new state
 	if(mode == curr_mode){ // if not, exit
 		return;
@@ -392,11 +392,11 @@ void state_machine_transition(TEScommand cmand){
 			break;
 		
 		// TODO: SM fill out the other modes with functional code
-		case ORIENT_DEFAULT: // should be orienting to something like X+
-		case ORIENT_X_POS:
-		case ORIENT_Y_POS:
-		case ORIENT_X_NEG:
-		case ORIENT_Y_NEG:
+		case CMD_ORIENT_DEFAULT: // should be orienting to something like X+
+		case CMD_ORIENT_X_POS:
+		case CMD_ORIENT_Y_POS:
+		case CMD_ORIENT_X_NEG:
+		case CMD_ORIENT_Y_NEG:
 
 		default: // do nothing
 			command_is_valid = false;

@@ -4,7 +4,12 @@
 
 #include <validation_tests.h>
 
-void create_test_tasks(void); // create all RTOS tasks for testing
+/*
+ * Create all RTOS tasks for testing
+ */
+void create_test_tasks(void){
+    // TODO: validation_tests.cpp -> create rtos test tasks
+}
 
 /**
  * @brief
@@ -69,6 +74,9 @@ void basic_motion(void* pvParameters){
         if(mode == MODE_TEST_MOTION){
             float rot_vel_z = IMU1.gyrZ();
 
+            //------------------------------------------------------------------
+            /// @brief      This class describes a write.
+            ///
             Serial.write("USB interface initialized\r\n");
 
             if( rot_vel_z < MAX_TEST_SPD){

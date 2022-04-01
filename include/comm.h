@@ -17,9 +17,9 @@
 // command values
 enum Command : uint8_t
 {
-	CMD_DESATURATE = 0x00,	   // bring everything to a stop, maybe turn off?
-	CMD_STANDBY = 0xc0,
-	CMD_TEST    = 0xa0,
+	CMD_DESATURATE 	= 0x00,	   // bring everything to a stop, maybe turn off?
+	CMD_STANDBY 	= 0xc0,
+	CMD_TEST    	= 0xa0,
 	CMD_ORIENT_DEFAULT = 0x80, // should be orienting to something like X+
 	CMD_ORIENT_X_POS= 0xe0,
 	CMD_ORIENT_Y_POS= 0xe1,

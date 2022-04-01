@@ -14,11 +14,11 @@
 #include <samd51_pin_definitions.h>
 
 // default pinout for the SAMD51
-const int   DRV_FG = FLYWHL_RPM,     // frequency/rpm indication pin
-            DRV_FR = FLYWHL_DIR,     // motor direction pin
-            DRV_BRKMOD = FLYWHL_BRKMOD, // brake mode (coast/brake), not currently available
-            DRV_PWM = FLYWHL_PWM,   // pwm output pin
-            DRV_RD = FLYWHL_LOCKED;     // lock indication pin
+const int   DRV_FG = FLYWHL_RPM_PIN,     // frequency/rpm indication pin
+            DRV_FR = FLYWHL_DIR_PIN,     // motor direction pin
+            DRV_BRKMOD = FLYWHL_BRKMOD_PIN, // brake mode (coast/brake), not currently available
+            DRV_PWM = FLYWHL_PWM_PIN,   // pwm output pin
+            DRV_RD = FLYWHL_LOCK_INDICATION_PIN;     // lock indication pin
 
 enum MotorDirection {REV=0, FWD=1};
 
