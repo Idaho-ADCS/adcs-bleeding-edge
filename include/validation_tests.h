@@ -17,7 +17,7 @@ extern DRV10970 flywhl;
 extern ICM_20948_I2C IMU1;
 extern QueueHandle_t modeQ;     /* state machine publishes mode here */
 
-void create_test_tasks(void); // create all RTOS tasks for testing
+void create_test_tasks(); // create all RTOS tasks for testing
 
 // TEST TASKS //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void writeUART(void *pvParameters);              // transmit heartbeat every second, active when mode is TEST_MODE

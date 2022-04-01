@@ -19,8 +19,7 @@
 
 // TESTING DEFINES //////////////////////////////////////////////////////////////
 #define DEBUG 			/* print the serial debug messages over USB connection */
-#define TESTHEART  		/* test if can transmit heartbeat */
-//#define TESTMOTION 	/* test if can spin flywheel */
+#define TEST_RTOS 		/* if this is defined, then test tasks will be available */
 /////////////////////////////////////////////////////////////////////////////////
 
 /* NON-RTOS GLOBAL VARIABLES ================================================ */
@@ -281,10 +280,8 @@ void init_rtos_architecture(void){
     //xTaskCreate(writeUART, "Write UART", 2048, NULL, 1, NULL); // test function to send heartbeat every half-second
 
     // TESTS
-    #ifdef TESTHEART
-    	xTaskCreate(basic_heartbeat, "BASIC HEARTBEAT TEST", 256, NULL, 1, NULL);
-    #elif TESTMOTION
-		xTaskCreate(basic_motion, "BASIC MOTION TEST", 256, NULL, 1, NULL);
+    #ifdef TEST_RTOS
+    	create_test_tasks(); // if we are in test mode, create the tasks
     #endif
 
 	#ifdef DEBUG
@@ -381,6 +378,16 @@ void state_machine_transition(TEScommand cmand){
 			// do test command stuff
 			break;
 
+		// WARNING: if you switch out of a test mode the test will still be on the stack
+		// 	on the plus side, the task won't run though
+		case CMD_TST_BASIC_MOTION:
+		case CMD_TST_BASIC_AD:
+		case CMD_TST_BASIC_AC:
+		case CMD_TST_SIMPLE_DETUMBLE:
+		case CMD_TST_SIMPLE_ORIENT:
+			create_test_tasks();
+			break;
+
 		case CMD_STANDBY:
 			// print heartbeat regularly turn off actuators
 			if(magnetorquer_on){
@@ -407,6 +414,17 @@ void state_machine_transition(TEScommand cmand){
 
 	if(command_is_valid){
 		xQueueOverwrite(modeQ, (void*)&mode);  // enter specified mode
+
+		#ifdef DEBUG
+	    	char cmd_str[8];  // used to print command value to serial monitor
+            // convert int to string for USB monitoring
+            sprintf(cmd_str, "0x%02x", cmand.getCommand());
+
+            // print command value to USB
+            SERCOM_USB.print("Command set:");
+            SERCOM_USB.print(cmd_str);
+            SERCOM_USB.print("\r\n");
+        #endif
 
 		// TODO: SM init the new mode, maybe turn off an unneeded actuator? clear some data?
 	}

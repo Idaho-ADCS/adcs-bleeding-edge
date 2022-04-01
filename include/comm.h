@@ -17,10 +17,17 @@
 // command values
 enum Command : uint8_t
 {
-	CMD_DESATURATE 	= 0x00,	   // bring everything to a stop, maybe turn off?
+	CMD_DESATURATE 	= 0x00,	   	// bring everything to a stop, maybe turn off?
 	CMD_STANDBY 	= 0xc0,
-	CMD_TEST    	= 0xa0,
-	CMD_ORIENT_DEFAULT = 0x80, // should be orienting to something like X+
+
+	CMD_TEST    	= 0xa0,		// transmit heartbeat signal regularly
+	CMD_TST_BASIC_MOTION = 0xa1, // test how much force needed to rotate
+	CMD_TST_BASIC_AD = 0xa2,	// test attitude determination
+	CMD_TST_BASIC_AC = 0xa3, 	// test attitude control
+	CMD_TST_SIMPLE_DETUMBLE = 0xa4,	// test simplistic detumble 
+	CMD_TST_SIMPLE_ORIENT 	= 0xa5,	// test simplistic orientation
+
+	CMD_ORIENT_DEFAULT = 0x80, 	// should be orienting to something like X+
 	CMD_ORIENT_X_POS= 0xe0,
 	CMD_ORIENT_Y_POS= 0xe1,
 	CMD_ORIENT_X_NEG= 0xe2,

@@ -8,7 +8,15 @@
  * Create all RTOS tasks for testing
  */
 void create_test_tasks(void){
-    // TODO: validation_tests.cpp -> create rtos test tasks
+    xTaskCreate(basic_motion, "BASIC MOTION", 256, NULL, 1, NULL);
+    xTaskCreate(basic_attitude_determination, "BASIC AD", 256, NULL, 1, NULL);
+    xTaskCreate(basic_attitude_control, "BASIC AC", 256, NULL, 1, NULL);
+    xTaskCreate(simple_detumble, "SIMPLE DETUMBLE", 256, NULL, 1, NULL);
+    xTaskCreate(simple_orient, "SIMPLE ORIENT", 256, NULL, 1, NULL); 
+
+    #ifdef DEBUG
+        SERCOM_USB.println("Created test task");
+    #endif
 }
 
 /**
@@ -71,7 +79,7 @@ void basic_motion(void* pvParameters){
     while(true){
         xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
 
-        if(mode == MODE_TEST_MOTION){
+        if(mode == CMD_TST_BASIC_MOTION){
             float rot_vel_z = IMU1.gyrZ();
 
             //------------------------------------------------------------------
@@ -102,7 +110,7 @@ void basic_heartbeat(void* pvParameters){
     while(true){
         xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
 
-        if(mode == MODE_TEST_HRTBT){
+        if(mode == 0){
             // read all sensors
             readIMU(dat);
             readINA(dat); // TODO: reading INA may have an issue currently
@@ -132,7 +140,7 @@ void basic_attitude_determination(void* pvParameters){
     while(true){
         xQueuePeek(modeQ, &mode, 0);
 
-        if(mode == MODE_TEST_AD){
+        if(mode == CMD_TST_BASIC_AD){
             // TODO: write the attitude determination test in validation_tests.cpp
             // TODO: read IMU
             // TODO: use geographic lib to get ideal
@@ -153,7 +161,7 @@ void basic_attitude_control(void* pvParameters){
     while(true){
         xQueuePeek(modeQ, &mode, 0);
 
-        if(mode == MODE_TEST_AC){
+        if(mode == CMD_TST_BASIC_AC){
             // TODO: write the attitude control test in validation_tests.cpp
         }
 
@@ -172,7 +180,7 @@ void simple_detumble(void* pvParameters){
     while(true){
         xQueuePeek(modeQ, &mode, 0);
 
-        if(mode == MODE_TEST_AD){
+        if(mode == CMD_TST_SIMPLE_DETUMBLE){
             // TODO: write the detumble test in validation_tests.cpp
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -189,7 +197,7 @@ void simple_orient(void* pvParameters){
     while(true){
         xQueuePeek(modeQ, &mode, 0);
 
-        if(mode == MODE_TEST_AD){
+        if(mode == CMD_TST_SIMPLE_ORIENT){
             // TODO: write the orient test in validation_tests.cpp
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
