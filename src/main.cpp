@@ -1,4 +1,5 @@
 // Our own headers
+#include <global.h>					/* definitions of interfaces and test modes */
 #include "samd51_pin_definitions.h"
 #include "comm.h" 					/* data packets and UART transmission functions */
 #include "sensors.h" 				/* read from sensors into heartbeat packet */
@@ -7,20 +8,12 @@
 #include "DRV_10970.h"
 #include "validation_tests.h" // tests for functionality
 
-// only include this if test functions are desired
-//#include <test.h>
-
 // Arduino library headers
 #include "INA209.h"
 #include "ICM_20948.h"
 #include "FreeRTOS_SAMD51.h"
 // Standard C/C++ library headers
 #include <stdint.h>
-
-// TESTING DEFINES //////////////////////////////////////////////////////////////
-#define DEBUG 			/* print the serial debug messages over USB connection */
-#define TEST_RTOS 		/* if this is defined, then test tasks will be available */
-/////////////////////////////////////////////////////////////////////////////////
 
 /* NON-RTOS GLOBAL VARIABLES ================================================ */
 
@@ -79,9 +72,9 @@ QueueHandle_t modeQ;
  * setup function as if it were main. Since setup runs only once, it
  * essentially behaves the same as main.
  */
-int main(void)
+void setup(void)
 {
-	#ifdef DEBUG
+	#if DEBUG
     	/**
      	* Initialize USB connection to computer. Used to print debug messages.
      	* Baud rate: 115200
@@ -101,7 +94,7 @@ int main(void)
      */
     SERCOM_UART.begin(115200, SERIAL_8O1);
     while (!SERCOM_UART);  // wait for initialization to complete
-	#ifdef DEBUG
+	#if DEBUG
     	SERCOM_USB.write("UART interface initialized\r\n");
 	#endif
 
@@ -122,8 +115,9 @@ int main(void)
     data_packet.setStatus(STATUS_HELLO);
     data_packet.computeCRC();
     data_packet.send();
+    
 
-    vTaskStartScheduler(); // start the RTOS
+   vTaskStartScheduler(); // start the RTOS
 
     // should never be reached if everything goes right
     while (1)
@@ -133,7 +127,6 @@ int main(void)
 		data_packet.send();
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	}
-	return 0;
 }
 
 /*
@@ -144,9 +137,12 @@ int main(void)
  */
 void loop(){
 	/* SAMD51 USBCore.cpp sets enable bit during sleep standby mode so USB needs to be disabled if in DEBUG*/
-	#ifdef DEBUG
-    	USB->HOST.CTRLA.reg &= ~USB_CTRLA_ENABLE; // disable USB in standby sleep mode...
+	#if !TEST_CONTROL_FLOW
+		#if DEBUG
+	    	USB->HOST.CTRLA.reg &= ~USB_CTRLA_ENABLE; // disable USB in standby sleep mode...
+		#endif
 	#endif
+
 	// SLEEPRDY bit must be set to sleep
 	if(PM_INTFLAG_SLEEPRDY)
 		__WFI(); // enter low power mode when running Idle task to enter low power mode
@@ -157,7 +153,6 @@ void loop(){
 
 /* Initialize all the GPIO pins and the builtin LED */
 void init_hardware(void){
-	Serial.println("INIT HARDWARE\n");
 	// INIT SLEEP REG
 	// configure power manager (PM) to enter STANDBY mode on _WFI()
 	PM->SLEEPCFG.bit.SLEEPMODE = 0x4;
@@ -174,6 +169,10 @@ void init_hardware(void){
 
 	pinMode(10, OUTPUT);
 	analogWrite(10, 0); // set the PWM pin to 0%
+
+	#if DEBUG
+		SERCOM_USB.println("HARDWARE INITIALIZED");
+	#endif
 }
 
 /*
@@ -214,56 +213,62 @@ void init_PWM_50kHz(void){
 
 	TCC0->CTRLA.bit.ENABLE = 1;                        // Enable timer TCC0
 	while (TCC0->SYNCBUSY.bit.ENABLE);                 // Wait for synchronization
+
+	#if DEBUG
+		SERCOM_USB.println("PWM INITIALIZED");
+	#endif
 }
 
 
 /* Setup the sensor objects */
 void init_sensors(void){
-	/**
-	 * Initialize first IMU
-	 * Address: 0x69 or 0x68
-	 */
-    IMU1.begin(SERCOM_I2C, AD0_VAL);
-    while (IMU1.status != ICM_20948_Stat_Ok);  // wait for initialization to
-                                               // complete
-	#ifdef DEBUG
-    	SERCOM_USB.write("IMU1 initialized\r\n");
-	#endif
-
-	#ifdef TWO_IMUS
+	#if !TEST_CONTROL_FLOW
 		/**
-	 	* Initialize second IMU
-	 	* Address: 0x68 or 0x69
-	 	*/
-    	IMU2.begin(SERCOM_I2C, AD0_VAL^1);  // initialize other IMU with opposite
-										// value for bit 0
-    	while (IMU2.status != ICM_20948_Stat_Ok);  // wait for initialization to
-                                               // complete
-		#ifdef DEBUG
-    		SERCOM_USB.write("IMU2 initialized\r\n");
+		 * Initialize first IMU
+		 * Address: 0x69 or 0x68
+		 */
+	    IMU1.begin(SERCOM_I2C, AD0_VAL);
+	    while (IMU1.status != ICM_20948_Stat_Ok);  // wait for initialization to
+	                                               // complete
+		#if DEBUG
+	    	SERCOM_USB.write("IMU1 initialized\r\n");
 		#endif
+
+		#if TWO_IMUS
+			/**
+		 	* Initialize second IMU
+		 	* Address: 0x68 or 0x69
+		 	*/
+	    	IMU2.begin(SERCOM_I2C, AD0_VAL^1);  // initialize other IMU with opposite
+											// value for bit 0
+	    	while (IMU2.status != ICM_20948_Stat_Ok);  // wait for initialization to
+	                                               // complete
+			#if DEBUG
+	    		SERCOM_USB.write("IMU2 initialized\r\n");
+			#endif
+		#endif
+
+		/**
+		 * Write default settings to INA209
+		 * Reset: no
+		 // * Bus voltage range: 32V
+		 * PGA gain: /8
+		 * PGA range: +-320mV
+		 * ADC resolution: 12 bits
+		 * ADC conversion time: 532us
+		 * Mode: shunt and bus, continuous
+		 */
+	    ina209.writeCfgReg(0x399f);
+
+		/**
+		 * Calibrate INA209
+		 * Current LSB: 100uA
+		 */
+	    ina209.writeCal(0x7fff);
 	#endif
 
-	/**
-	 * Write default settings to INA209
-	 * Reset: no
-	 // * Bus voltage range: 32V
-	 * PGA gain: /8
-	 * PGA range: +-320mV
-	 * ADC resolution: 12 bits
-	 * ADC conversion time: 532us
-	 * Mode: shunt and bus, continuous
-	 */
-    ina209.writeCfgReg(0x399f);
-
-	/**
-	 * Calibrate INA209
-	 * Current LSB: 100uA
-	 */
-    ina209.writeCal(0x7fff);
-
-	#ifdef DEBUG
-    	SERCOM_USB.write("INA209 initialized\r\n");
+	#if DEBUG
+    	SERCOM_USB.println("SENSORS INITIALIZED");
 	#endif
 
 }
@@ -278,15 +283,18 @@ void init_rtos_architecture(void){
 
     xTaskCreate(readUART, "Read UART", 2048, NULL, 1, readUART_h);
     //xTaskCreate(writeUART, "Write UART", 2048, NULL, 1, NULL); // test function to send heartbeat every half-second
+	#if DEBUG
+    	SERCOM_USB.println("INITIALIZED COMMAND MONITOR");
+	#endif
 
     // TESTS
-    #ifdef TEST_RTOS
+    #if RTOS_TEST_SUITE
+		#if DEBUG
+	    	SERCOM_USB.println("REQUESTED: INITIALIZE RTOS TEST SUITE");
+		#endif
     	create_test_tasks(); // if we are in test mode, create the tasks
     #endif
 
-	#ifdef DEBUG
-    	SERCOM_USB.write("Tasks created\r\n");
-	#endif
 }
 
 /* RTOS TASK DEFINITIONS ==================================================== */
@@ -309,7 +317,7 @@ static void readUART(void *pvParameters)
 	ADCSdata response;
 	uint8_t mode;
 
-	#ifdef DEBUG
+	#if DEBUG
     	char cmd_str[8];  // used to print command value to serial monitor
 	#endif
 
@@ -335,7 +343,7 @@ static void readUART(void *pvParameters)
 					response.send();
 				}
 
-				#ifdef DEBUG
+				#if DEBUG
 	                // convert int to string for USB monitoring
 	                sprintf(cmd_str, "0x%02x", cmd_packet.getCommand());
 
@@ -407,7 +415,7 @@ void state_machine_transition(TEScommand cmand){
 
 		default: // do nothing
 			command_is_valid = false;
-			#ifdef DEBUG
+			#if DEBUG
 				Serial.println("HIT AN UNKNOWN OR UNIMPLEMENTED COMMAND");
 			#endif
 	}
@@ -415,7 +423,7 @@ void state_machine_transition(TEScommand cmand){
 	if(command_is_valid){
 		xQueueOverwrite(modeQ, (void*)&mode);  // enter specified mode
 
-		#ifdef DEBUG
+		#if DEBUG
 	    	char cmd_str[8];  // used to print command value to serial monitor
             // convert int to string for USB monitoring
             sprintf(cmd_str, "0x%02x", cmand.getCommand());

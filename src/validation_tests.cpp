@@ -15,7 +15,7 @@ void create_test_tasks(void){
     xTaskCreate(simple_orient, "SIMPLE ORIENT", 256, NULL, 1, NULL); 
 
     #ifdef DEBUG
-        SERCOM_USB.println("Created test task");
+        SERCOM_USB.println("\tINITIALIZED RTOS TEST SUITE");
     #endif
 }
 
@@ -52,8 +52,8 @@ static void writeUART(void *pvParameters)
             data_packet.computeCRC();
             data_packet.send();  // send to TES
             #ifdef DEBUG
-            // SERCOM_USB.write("Wrote to UART\r\n");
-            // printScaledAGMT(&IMU1);
+                SERCOM_USB.write("[writeUART] wrote to UART\r\n");
+                //printScaledAGMT(&IMU1);
             #endif
 
             data_packet.clear();
@@ -71,24 +71,47 @@ static void writeUART(void *pvParameters)
  */
 void basic_motion(void* pvParameters){
     uint8_t mode;
-    const int pwm_sig = 255 * 0.05; // 5%
-    const int MAX_TEST_SPD = 10;
+    int multiplier = 0.00;
+    int pwm_sig = 255 * multiplier; // 0%
+    const int MAX_TEST_SPD = 10; // upper limit is 10 degrees per second/1.667 rpm
 
-    const TickType_t FREQ = 1000 / portTICK_PERIOD_MS;
+    const TickType_t FREQ = 2000 / portTICK_PERIOD_MS; 
 
     while(true){
+        #if DEBUG
+            SERCOM_USB.println("[BASIC MOTION] checked mode");
+        #endif
+
         xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
 
         if(mode == CMD_TST_BASIC_MOTION){
             float rot_vel_z = IMU1.gyrZ();
 
-            //------------------------------------------------------------------
-            /// @brief      This class describes a write.
-            ///
-            Serial.write("USB interface initialized\r\n");
-
-            if( rot_vel_z < MAX_TEST_SPD){
+            if( rot_vel_z < MAX_TEST_SPD && multiplier < 1 ){ // as long as we are spinning slower than our goal, continue
+                pwm_sig = 255 * multiplier;
                 flywhl.run(FWD, pwm_sig);
+
+                if(multiplier < 1){ multiplier += 0.01; }
+                #if DEBUG                
+                    else{
+                        Serial.println("[BASIC MOTION] multiplier hit ceiling");
+                    }
+                #endif
+            }else{ // stop the test
+
+                flywhl.stop();
+
+                #if DEBUG 
+                    if( rot_vel_z > MAX_TEST_SPD ){
+                        SERCOM_USB.print("[BASIC MOTION] rotational velocity greater than MAX_TEST_SPD ( ");
+                        SERCOM_USB.print(MAX_TEST_SPD);
+                        SERCOM_USB.println(" deg/s )");
+                    }else if (multiplier >= 1){
+                        SERCOM_USB.print("[BASIC MOTION] multiplier hit ceiling but velocity still ");
+                        SERCOM_USB.print(rot_vel_z);
+                        SERCOM_USB.println(" deg/s");
+                    }
+                #endif
             }
         }
 
@@ -108,6 +131,9 @@ void basic_heartbeat(void* pvParameters){
     ADCSdata dat;
 
     while(true){
+        #if DEBUG
+            SERCOM_USB.println("[BASIC HEARTBEAT] checked mode");
+        #endif
         xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
 
         if(mode == 0){
@@ -138,6 +164,9 @@ void basic_attitude_determination(void* pvParameters){
     uint8_t mode;
 
     while(true){
+        #if DEBUG
+            SERCOM_USB.println("[BASIC AD] checked mode");
+        #endif
         xQueuePeek(modeQ, &mode, 0);
 
         if(mode == CMD_TST_BASIC_AD){
@@ -159,6 +188,9 @@ void basic_attitude_determination(void* pvParameters){
 void basic_attitude_control(void* pvParameters){
     uint8_t mode;
     while(true){
+        #if DEBUG
+            SERCOM_USB.println("[BASIC AC] checked mode");
+        #endif
         xQueuePeek(modeQ, &mode, 0);
 
         if(mode == CMD_TST_BASIC_AC){
@@ -178,6 +210,9 @@ void basic_attitude_control(void* pvParameters){
 void simple_detumble(void* pvParameters){
     uint8_t mode;
     while(true){
+        #if DEBUG
+            SERCOM_USB.println("[BASIC DETUMBLE] checked mode");
+        #endif
         xQueuePeek(modeQ, &mode, 0);
 
         if(mode == CMD_TST_SIMPLE_DETUMBLE){
@@ -195,6 +230,10 @@ void simple_detumble(void* pvParameters){
 void simple_orient(void* pvParameters){
     uint8_t mode;
     while(true){
+        #if DEBUG
+            SERCOM_USB.println("[BASIC ORIENT] checked mode");
+        #endif
+        
         xQueuePeek(modeQ, &mode, 0);
 
         if(mode == CMD_TST_SIMPLE_ORIENT){

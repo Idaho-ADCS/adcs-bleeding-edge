@@ -1,6 +1,8 @@
 #ifndef __SUPPORT_FUNCTIONS_H__
 #define __SUPPORT_FUNCTIONS_H__
 
+#include <global.h>
+
 /* These are functions that support the main command functions in one way
  * or another they are called upon in the commandFunctions.cpp file */
 /* I tried to make these as self-explanatory as possible by name
@@ -18,7 +20,7 @@
 #define MODE_TEST_SMPLTUMBLE 6  /* starting in spin, attempt to stop spinning */
 #define MODE_TEST_ORIENT 7      /* try orienting the adcs system */
 
-// #define TWO_IMUS
+//#define TWO_IMUS
 
 //Parses cmd and calls appropriate function
 void doCmd(char *cmd);

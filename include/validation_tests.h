@@ -5,6 +5,7 @@
  *  see supportFunctions.h
  */
 
+#include <global.h>
 #include <DRV_10970.h>
 #include <ICM_20948.h>
 #include <FreeRTOS_SAMD51.h>

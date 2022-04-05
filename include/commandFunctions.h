@@ -2,6 +2,7 @@
 #define __COMMAND_FUNCTIONS_H__
 
 
+#include <global.h>
 #include "comm.h"
 #include "sensors.h"
 #include "DRV_10970.h"

@@ -19,6 +19,7 @@
 *       3. To print debug data to the serial port there are helper functions in this file.
 *           Make sure you setup Serial first.
 ***************************************************************/
+#include <global.h>
 #include "ICM_20949.h" // Click here to get the library: http://librarymanager/All#SparkFun_ICM_20949_IMU
 #include <Wire.h>
 #include "wiring_private.h"

@@ -9,41 +9,46 @@ extern INA209 ina209;
 
 void readIMU(ADCSdata &data_packet)
 {
+	#if TEST_CONTROL_FLOW
+		data_packet.setIMUdata(0, 0, 0, 0, 0, 0);	// use default values
+		data_packet.setStatus(STATUS_FUDGED);		// tell the satellite this data isn't real
+		return; // don't do anything else
+	#endif 
+
 	ICM_20948_I2C *sensor_ptr1 = &IMU1; // IMU data can only be accessed through
                                         // a pointer
-#ifdef TWO_IMUS
-	ICM_20948_I2C *sensor_ptr2 = &IMU2; // IMU data can only be accessed through
-                                        // a pointer
-#endif
+	#if TWO_IMUS
+		ICM_20948_I2C *sensor_ptr2 = &IMU2; // IMU data can only be accessed through a pointer
+	#endif
 
 	float mx, my, mz, gx, gy, gz;
 
 	if (IMU1.dataReady())
 		IMU1.getAGMT();  // acquires data from sensor
 
-#ifdef TWO_IMUS
-	if (IMU2.dataReady())
-		IMU2.getAGMT();
-#endif
+	#if TWO_IMUS
+		if (IMU2.dataReady())
+			IMU2.getAGMT();
+	#endif
 
-#ifdef TWO_IMUS
-	// extract data from IMU object
-	mx = (sensor_ptr1->magY() + sensor_ptr2->magY()) / 2;
-	my = (sensor_ptr1->magX() + sensor_ptr2->magX()) / 2;
-	mz = (sensor_ptr1->magZ() + sensor_ptr2->magZ()) / -2;
+	#if TWO_IMUS
+		// extract data from IMU object
+		mx = (sensor_ptr1->magY() + sensor_ptr2->magY()) / 2;
+		my = (sensor_ptr1->magX() + sensor_ptr2->magX()) / 2;
+		mz = (sensor_ptr1->magZ() + sensor_ptr2->magZ()) / -2;
 
-	gx = (sensor_ptr1->gyrY() + sensor_ptr2->gyrY()) / 2;
-	gy = (sensor_ptr1->gyrX() + sensor_ptr2->gyrX()) / 2;
-	gz = (sensor_ptr1->gyrZ() + sensor_ptr2->gyrZ()) / -2;
-#else
-	mx = sensor_ptr1->magY();
-	my = sensor_ptr1->magX();
-	mz = sensor_ptr1->magZ() * -1;
+		gx = (sensor_ptr1->gyrY() + sensor_ptr2->gyrY()) / 2;
+		gy = (sensor_ptr1->gyrX() + sensor_ptr2->gyrX()) / 2;
+		gz = (sensor_ptr1->gyrZ() + sensor_ptr2->gyrZ()) / -2;
+	#else
+		mx = sensor_ptr1->magY();
+		my = sensor_ptr1->magX();
+		mz = sensor_ptr1->magZ() * -1;
 
-	gx = sensor_ptr1->gyrY();
-	gy = sensor_ptr1->gyrX();
-	gz = sensor_ptr1->gyrZ() * -1;
-#endif
+		gx = sensor_ptr1->gyrY();
+		gy = sensor_ptr1->gyrX();
+		gz = sensor_ptr1->gyrZ() * -1;
+	#endif
 
 	data_packet.setIMUdata(mx, my, mz, gx, gy, gz);
 }

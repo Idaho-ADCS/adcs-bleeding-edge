@@ -1,6 +1,7 @@
 #ifndef __SENSORS_H__
 #define __SENSORS_H__
 
+#include <global.h>
 #include "comm.h"
 #include "ICM_20948.h"
 #include "INA209.h"

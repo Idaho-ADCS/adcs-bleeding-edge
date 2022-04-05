@@ -1,6 +1,7 @@
 #ifndef __COMM_H__
 #define __COMM_H__
 
+#include <global.h>
 #include "CRC16.h"
 #include <stdint.h>
 
@@ -40,7 +41,8 @@ enum Status : uint8_t
 	STATUS_OK         = 0xaa,  // "Heartbeat"
 	STATUS_HELLO      = 0xaf,  // Sent upon system init
 	STATUS_ADCS_ERROR = 0xf0,  // Sent upon runtime error
-	STATUS_COMM_ERROR = 0x99   // Sent upon invalid communication
+	STATUS_COMM_ERROR = 0x99,  // Sent upon invalid communication
+	STATUS_FUDGED	  = 0x00   // Data is not real, just test output
 };
 
 /**
