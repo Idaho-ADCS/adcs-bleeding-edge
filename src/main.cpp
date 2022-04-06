@@ -50,7 +50,7 @@ void init_rtos_architecture(void);
 
 /* RTOS TASK DECLARATIONS =================================================== */
 static void readUART(void *pvParameters);
-static void writeUART(void *pvParameters);
+static void heartbeat(void *pvParameters);
 
 /* RTOS HANDLES ============================================================= */
 TaskHandle_t* readUART_h;
@@ -84,6 +84,7 @@ void setup(void)
     	SERCOM_USB.begin(115200);
     	while (!SERCOM_USB);  // wait for initialization to complete
     	SERCOM_USB.write("USB interface initialized\r\n");
+    	print_global_config(); // print what debug modes are currently enabled
 	#endif
 
     /**
@@ -282,7 +283,8 @@ void init_rtos_architecture(void){
 	xQueueSend(modeQ, (void*)&mode, (TickType_t)0);
 
     xTaskCreate(readUART, "Read UART", 2048, NULL, 1, readUART_h);
-    //xTaskCreate(writeUART, "Write UART", 2048, NULL, 1, NULL); // test function to send heartbeat every half-second
+    xTaskCreate(heartbeat, "HEARTBEAT", 2048, NULL, 1, NULL); // test function to send heartbeat every half-second
+
 	#if DEBUG
     	SERCOM_USB.println("INITIALIZED COMMAND MONITOR");
 	#endif
@@ -352,8 +354,8 @@ static void readUART(void *pvParameters)
 	                SERCOM_USB.print(cmd_str);
 	                SERCOM_USB.print("\r\n");
 
-	                if (cmd_packet.getCommand() == CMD_TEST)
-	                    SERCOM_USB.print("Entering test mode\r\n");
+	                if (cmd_packet.getCommand() == CMD_HEARTBEAT)
+	                    SERCOM_USB.print("Entering heartbeat only mode\r\n");
 
 	                if (cmd_packet.getCommand() == CMD_STANDBY)
 	                    SERCOM_USB.print("Entering standby mode\r\n");
@@ -365,13 +367,57 @@ static void readUART(void *pvParameters)
     }
 }
 
+/**
+ * @brief
+ * Reads magnetometer and gyroscope values from IMU and writes them to UART
+ * every 0.5 seconds while ADCS is in test mode.
+ *
+ * @param[in] pvParameters  Unused but required by FreeRTOS. Program will not
+ * compile without this parameter. When a task is instantiated from this
+ * function, a set of initialization arguments or NULL is passed in as
+ * pvParameters, so pvParameters must be declared even if it is not used.
+ *
+ * @return None
+ */
+static void heartbeat(void *pvParameters)
+{
+    uint8_t mode;
+    ADCSdata data_packet;
+
+    #ifdef DEBUG
+    char mode_str[8];
+    #endif
+
+    while (1)
+    {
+        xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
+
+        if (mode == CMD_HEARTBEAT)
+        {
+            data_packet.setStatus(STATUS_OK);
+            readIMU(data_packet);
+            readINA(data_packet);
+            data_packet.computeCRC();
+            data_packet.send();  // send to TES
+            #ifdef DEBUG
+                SERCOM_USB.write("[HEARTBEAT] wrote to UART\r\n");
+                //printScaledAGMT(&IMU1);
+            #endif
+
+            data_packet.clear();
+        }
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
 /*
  * Handles transition from the current mode (modeQ) to the new mode selected by the input command. 
  */
 void state_machine_transition(TEScommand cmand){
 	// set new state from the command
 	uint8_t mode = cmand.getCommand();
-	uint8_t curr_mode = CMD_TEST; 
+	uint8_t curr_mode = CMD_STANDBY; 
 	// get the current state to compare against	
 	xQueuePeek(modeQ, (void*)curr_mode, 0);
 	// make sure we are entering a new state
@@ -382,7 +428,7 @@ void state_machine_transition(TEScommand cmand){
 	bool command_is_valid = true;
 
 	switch(mode){
-		case CMD_TEST:
+		case CMD_HEARTBEAT:
 			// do test command stuff
 			break;
 

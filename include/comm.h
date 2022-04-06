@@ -20,8 +20,8 @@ enum Command : uint8_t
 {
 	CMD_DESATURATE 	= 0x00,	   	// bring everything to a stop, maybe turn off?
 	CMD_STANDBY 	= 0xc0,
+	CMD_HEARTBEAT   = 0xa0,		// transmit heartbeat signal regularly
 
-	CMD_TEST    	= 0xa0,		// transmit heartbeat signal regularly
 	CMD_TST_BASIC_MOTION = 0xa1, // test how much force needed to rotate
 	CMD_TST_BASIC_AD = 0xa2,	// test attitude determination
 	CMD_TST_BASIC_AC = 0xa3, 	// test attitude control
@@ -42,7 +42,10 @@ enum Status : uint8_t
 	STATUS_HELLO      = 0xaf,  // Sent upon system init
 	STATUS_ADCS_ERROR = 0xf0,  // Sent upon runtime error
 	STATUS_COMM_ERROR = 0x99,  // Sent upon invalid communication
-	STATUS_FUDGED	  = 0x00   // Data is not real, just test output
+	STATUS_FUDGED	  = 0x00,  // Data is not real, just test output
+
+	STATUS_TEST_START = 0xb0,  // starting test
+	STATUS_TEST_END   = 0xb1,  // test finished
 };
 
 /**

@@ -19,49 +19,6 @@ void create_test_tasks(void){
     #endif
 }
 
-/**
- * @brief
- * Reads magnetometer and gyroscope values from IMU and writes them to UART
- * every 0.5 seconds while ADCS is in test mode.
- *
- * @param[in] pvParameters  Unused but required by FreeRTOS. Program will not
- * compile without this parameter. When a task is instantiated from this
- * function, a set of initialization arguments or NULL is passed in as
- * pvParameters, so pvParameters must be declared even if it is not used.
- *
- * @return None
- */
-static void writeUART(void *pvParameters)
-{
-    uint8_t mode;
-    ADCSdata data_packet;
-
-    #ifdef DEBUG
-    char mode_str[8];
-    #endif
-
-    while (1)
-    {
-        xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
-
-        if (mode == MODE_TEST)
-        {
-            data_packet.setStatus(STATUS_OK);
-            readIMU(data_packet);
-            readINA(data_packet);
-            data_packet.computeCRC();
-            data_packet.send();  // send to TES
-            #ifdef DEBUG
-                SERCOM_USB.write("[writeUART] wrote to UART\r\n");
-                //printScaledAGMT(&IMU1);
-            #endif
-
-            data_packet.clear();
-        }
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
 
 /*
  * Assume start from start, then begin increasing flywheel RPM until the system begins to spin.
@@ -77,6 +34,11 @@ void basic_motion(void* pvParameters){
 
     const TickType_t FREQ = 2000 / portTICK_PERIOD_MS; 
 
+    // notify the TES by sending an empty packet with status set
+    ADCSdata data;
+    data.setStatus(STATUS_TEST_START);
+    data.computeCRC();
+
     while(true){
         #if DEBUG
             SERCOM_USB.println("[BASIC MOTION] checked mode");
@@ -85,6 +47,10 @@ void basic_motion(void* pvParameters){
         xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
 
         if(mode == CMD_TST_BASIC_MOTION){
+            if(multiplier == 0){
+                data.send();
+            }
+
             float rot_vel_z = IMU1.gyrZ();
 
             if( rot_vel_z < MAX_TEST_SPD && multiplier < 1 ){ // as long as we are spinning slower than our goal, continue
@@ -101,6 +67,11 @@ void basic_motion(void* pvParameters){
 
                 flywhl.stop();
 
+                // notify the TES by sending an empty packet with status set
+                data.setStatus(STATUS_TEST_END);
+                data.computeCRC();
+                data.send();
+
                 #if DEBUG 
                     if( rot_vel_z > MAX_TEST_SPD ){
                         SERCOM_USB.print("[BASIC MOTION] rotational velocity greater than MAX_TEST_SPD ( ");
@@ -112,6 +83,10 @@ void basic_motion(void* pvParameters){
                         SERCOM_USB.println(" deg/s");
                     }
                 #endif
+
+                // change mode to standby
+                uint8_t mode = CMD_STANDBY;
+                xQueueOverwrite(modeQ, (void*)&mode);  // enter specified mode
             }
         }
 
@@ -119,40 +94,6 @@ void basic_motion(void* pvParameters){
     }
 
 }
-
-
-/*
- * Reads all sensors periodically and transmits the data back to the main system via UART.
- *  1. Tests the ADCSdata class in comm.h
- *  2. Tests reading from sensors and data packet construction
- */
-void basic_heartbeat(void* pvParameters){
-    uint8_t mode;
-    ADCSdata dat;
-
-    while(true){
-        #if DEBUG
-            SERCOM_USB.println("[BASIC HEARTBEAT] checked mode");
-        #endif
-        xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
-
-        if(mode == 0){
-            // read all sensors
-            readIMU(dat);
-            readINA(dat); // TODO: reading INA may have an issue currently
-
-            // TODO: read sunsensors
-
-            // send data to satellite...
-            dat.computeCRC();
-            dat.send();
-            dat.clear();
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1000)); // transmit once per second
-    }
-}
-
 
 
 /**
