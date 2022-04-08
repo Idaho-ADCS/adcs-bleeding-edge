@@ -31,14 +31,14 @@
 #define SUNSENSOR_A 13
 
 // MAGNETORQUER CONTROL PINS
-#define MAGNETORQUER_2_REV_PIN 4
-#define MAGNETORQUER_2_FWD_PIN 22
+#define MAGNETORQUER_2_REV_PIN 4    // reverse pin for ZXBM5210 controlling first magnetorquer
+#define MAGNETORQUER_2_FWD_PIN 22   // same but forward pin
 
-#define MAGNETORQUER_1_REV_PIN 23
-#define MAGNETORQUER_1_FWD_PIN 24
+#define MAGNETORQUER_1_REV_PIN 23   // reverse pin for ZXBM5210 controlling second magnetorquer
+#define MAGNETORQUER_1_FWD_PIN 24   // same but forward pin
 
 // BUCK CONVERTER
-#define BUCK_ENABLE_PIN A5
+#define BUCK_ENABLE_PIN A5          // Buck converter is ON when high, provides power to both magnetorquers
 
 // UART
 #define RX 0

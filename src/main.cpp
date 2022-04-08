@@ -6,6 +6,7 @@
 #include "supportFunctions.h"
 #include "commandFunctions.h"
 #include "DRV_10970.h"
+#include "ZXMB5210.h"
 #include "validation_tests.h" // tests for functionality
 
 // Arduino library headers

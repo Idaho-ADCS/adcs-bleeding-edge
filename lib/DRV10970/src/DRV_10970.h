@@ -11,6 +11,7 @@
 #define DRV_10970_H
 
 #include <Arduino.h>
+#include <global.h>
 #include <samd51_pin_definitions.h>
 
 // default pinout for the SAMD51
@@ -20,7 +21,6 @@ const int   DRV_FG = FLYWHL_RPM_PIN,     // frequency/rpm indication pin
             DRV_PWM = FLYWHL_PWM_PIN,   // pwm output pin
             DRV_RD = FLYWHL_LOCK_INDICATION_PIN;     // lock indication pin
 
-enum MotorDirection {REV=0, FWD=1};
 
 class DRV10970 {
     private:

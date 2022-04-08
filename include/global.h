@@ -27,6 +27,9 @@
 #define DEBUG 1 			/* if non-zero then debug statements will be printed over USB serial */
 
 
+enum MotorDirection {REV=0, FWD=1};
+
+
 /*
  * Print a summary of the defines above and what their current ON/OFF state is.
  */
