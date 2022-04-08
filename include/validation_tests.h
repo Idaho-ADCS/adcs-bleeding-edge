@@ -8,6 +8,7 @@
 #include <global.h>
 #include <DRV_10970.h>
 #include <ICM_20948.h>
+#include <ADCSPhotodiodeArray.h>
 #include <FreeRTOS_SAMD51.h>
 #include <stdint.h>
 #include <comm.h>               /* data packet and transmission functions */

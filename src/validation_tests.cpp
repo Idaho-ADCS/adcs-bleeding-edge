@@ -149,7 +149,10 @@ void basic_attitude_control(void* pvParameters){
  * @param      pvParameters  The pv parameters
  */
 void simple_detumble(void* pvParameters){
+
     uint8_t mode;
+    uint8_t pwm = 10;
+
     while(true){
         #if DEBUG
             SERCOM_USB.println("[BASIC DETUMBLE] checked mode");
@@ -157,7 +160,14 @@ void simple_detumble(void* pvParameters){
         xQueuePeek(modeQ, &mode, 0);
 
         if(mode == CMD_TST_SIMPLE_DETUMBLE){
-            // TODO: write the detumble test in validation_tests.cpp
+
+            float rot_vel_z = IMU1.gyrZ();
+            if(rot_vel_z > 0){ // spinning clockwise
+                flywhl.run(REV, pwm);
+
+            }else if(rot_vel_z < 0){ // spinning counter-clockwise
+                flywhl.run(FWD, pwm);
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
