@@ -8,13 +8,17 @@
  * Create all RTOS tasks for testing
  */
 void create_test_tasks(void){
+    #if DEBUG
+        SERCOM_USB.println("\tINITIALIZING RTOS TEST SUITE");
+    #endif
+    
     xTaskCreate(basic_motion, "BASIC MOTION", 256, NULL, 1, NULL);
     xTaskCreate(basic_attitude_determination, "BASIC AD", 256, NULL, 1, NULL);
     xTaskCreate(basic_attitude_control, "BASIC AC", 256, NULL, 1, NULL);
     xTaskCreate(simple_detumble, "SIMPLE DETUMBLE", 256, NULL, 1, NULL);
     xTaskCreate(simple_orient, "SIMPLE ORIENT", 256, NULL, 1, NULL); 
-
-    #ifdef DEBUG
+    
+    #if DEBUG
         SERCOM_USB.println("\tINITIALIZED RTOS TEST SUITE");
     #endif
 }
@@ -150,8 +154,20 @@ void basic_attitude_control(void* pvParameters){
  */
 void simple_detumble(void* pvParameters){
 
-    uint8_t mode;
-    uint8_t pwm = 10;
+    uint8_t mode; // last received ADCS mode
+
+    const int target_rot_vel = 0;   // rotational velocity we want to maintain
+    const int step_size = 1;        // minimum step size to take when error is present
+    int num_steps = 0;
+
+    const float P = 0.25;            // proportional component
+    int I = 0;                      // integral component
+    int D = 0;                      // derivative component
+
+    int prev_error = 0;             // error from last loop iteration
+    int error = 0;                  // assumed stationary at start
+
+    int pwm_output = 0;             // init at zero, signed to represent direction
 
     while(true){
         #if DEBUG
@@ -160,14 +176,56 @@ void simple_detumble(void* pvParameters){
         xQueuePeek(modeQ, &mode, 0);
 
         if(mode == CMD_TST_SIMPLE_DETUMBLE){
+            // calculate error
+            ICM_20948_I2C *sensor_ptr1 = &IMU1; // IMU data can only be accessed through
+            if (IMU1.dataReady())
+                IMU1.getAGMT();  // acquires data from sensor
+            float rot_vel_z = sensor_ptr1->gyrZ();
 
-            float rot_vel_z = IMU1.gyrZ();
-            if(rot_vel_z > 0){ // spinning clockwise
-                flywhl.run(REV, pwm);
-
-            }else if(rot_vel_z < 0){ // spinning counter-clockwise
-                flywhl.run(FWD, pwm);
+            error = rot_vel_z - target_rot_vel;     // difference between current state and target state
+            // proportional term calculation
+            float p_term = error * P;
+            // integral term accumulation
+            I += error;
+            int i_term = I;
+            // derivative term
+            int d_term = I/num_steps;
+            // output
+            pwm_output = p_term; //+ i_term + d_term;
+            if(pwm_output > 255){ // cap output
+                pwm_output = 255;
             }
+
+            num_steps++;
+
+            // unsigned pwm to motor with direction
+            if(error > 0){
+                flywhl.run(REV, pwm_output);
+
+            }else if(error < 0){
+                flywhl.run(FWD, pwm_output);
+
+            }else{ 
+                // TODO: desaturate with magnetorquers if |pwm_output| == 255 or in state of equilibrium
+                // for the meantime, just keep doing the same thing
+            }
+
+            if(DEBUG){
+                SERCOM_USB.println("====== PID LOOP ======");
+                SERCOM_USB.print("IMU VELOCITY = ");
+                SERCOM_USB.print(rot_vel_z);
+                SERCOM_USB.println(" degrees/sec");
+
+                SERCOM_USB.print("ERROR = ");
+                SERCOM_USB.println(error);
+
+                SERCOM_USB.print("PWM OUTPUT = ");
+                SERCOM_USB.println(pwm_output);
+                SERCOM_USB.println("======================");
+            }
+
+            prev_error = error;
+
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
     }

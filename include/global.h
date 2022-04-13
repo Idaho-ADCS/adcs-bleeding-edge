@@ -22,7 +22,7 @@
 #define SERCOM_I2C Wire
 
 /* DEBUG/TEST DEFINITIONS */
-#define TEST_CONTROL_FLOW 1 /* if non-zero then assume satellite is connected but no sensors */
+#define TEST_CONTROL_FLOW 0 /* if non-zero then assume satellite is connected but no sensors */
 #define RTOS_TEST_SUITE 0 	/* if non-zero then rtos test tasks in validation_tests.h will be created */ 
 #define DEBUG 1 			/* if non-zero then debug statements will be printed over USB serial */
 
@@ -38,29 +38,31 @@ static void print_global_config(void){
     // test modes
     SERCOM_USB.print("DEBUG [");
     if(DEBUG){
-        SERCOM_USB.print("ON]");
+        SERCOM_USB.println("ON]");
     }else{
-        SERCOM_USB.print("OFF]");
+        SERCOM_USB.println("OFF]");
     }
 
     SERCOM_USB.print("TEST CONTROL FLOW [");
     if(TEST_CONTROL_FLOW){
-        SERCOM_USB.print("ON]");
+        SERCOM_USB.println("ON]");
     }else{
-        SERCOM_USB.print("OFF]");
+        SERCOM_USB.println("OFF]");
     }
 
     SERCOM_USB.print("RTOS_TEST_SUITE [");
     if(RTOS_TEST_SUITE){
-        SERCOM_USB.print("ON]");
+        SERCOM_USB.println("ON]");
     }else{
-        SERCOM_USB.print("OFF]");
+        SERCOM_USB.println("OFF]");
     }
 
     // two imus 
     SERCOM_USB.print("TWO_IMUS [");
-    if(SERCOM_USB){
-        SERCOM_USB.print("ON]");
+    if(TWO_IMUS){
+        SERCOM_USB.println("ON]");
+    }else{
+        SERCOM_USB.println("OFF]");
     }
     SERCOM_USB.println();
 }

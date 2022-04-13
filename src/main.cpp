@@ -75,6 +75,8 @@ QueueHandle_t modeQ;
  */
 void setup(void)
 {
+	init_hardware(); 			// setup gpio pins
+
 	#if DEBUG
     	/**
      	* Initialize USB connection to computer. Used to print debug messages.
@@ -96,6 +98,7 @@ void setup(void)
      */
     SERCOM_UART.begin(115200, SERIAL_8O1);
     while (!SERCOM_UART);  // wait for initialization to complete
+	SERCOM_UART.setTimeout(10);
 	#if DEBUG
     	SERCOM_USB.write("UART interface initialized\r\n");
 	#endif
@@ -107,7 +110,6 @@ void setup(void)
     SERCOM_I2C.begin();
     SERCOM_I2C.setClock(400000);
 
-	init_hardware(); 			// setup gpio pins
 	//init_PWM_50kHz();
 	init_sensors();				// init the sensor interfaces
 	init_rtos_architecture(); 	// create rtos tasks and stuff
@@ -119,7 +121,7 @@ void setup(void)
     data_packet.send();
     
 
-   vTaskStartScheduler(); // start the RTOS
+    vTaskStartScheduler(); // start the RTOS
 
     // should never be reached if everything goes right
     while (1)
@@ -141,7 +143,8 @@ void loop(){
 	/* SAMD51 USBCore.cpp sets enable bit during sleep standby mode so USB needs to be disabled if in DEBUG*/
 	#if !TEST_CONTROL_FLOW
 		#if DEBUG
-	    	USB->HOST.CTRLA.reg &= ~USB_CTRLA_ENABLE; // disable USB in standby sleep mode...
+			// TODO: UNCOMMENT THIS SO SLEEP MODE IS ENTERED IN IDLE TASK
+	    	//USB->HOST.CTRLA.reg &= ~USB_CTRLA_ENABLE; // disable USB in standby sleep mode...
 		#endif
 	#endif
 
@@ -172,9 +175,9 @@ void init_hardware(void){
 	pinMode(10, OUTPUT);
 	analogWrite(10, 0); // set the PWM pin to 0%
 
-	#if DEBUG
-		SERCOM_USB.println("HARDWARE INITIALIZED");
-	#endif
+	//#if DEBUG
+	//	SERCOM_USB.println("HARDWARE INITIALIZED");
+	//#endif
 }
 
 /*
@@ -283,8 +286,8 @@ void init_rtos_architecture(void){
 	uint8_t mode = MODE_TEST;
 	xQueueSend(modeQ, (void*)&mode, (TickType_t)0);
 
-    xTaskCreate(readUART, "Read UART", 2048, NULL, 1, readUART_h);
-    xTaskCreate(heartbeat, "HEARTBEAT", 2048, NULL, 1, NULL); // test function to send heartbeat every half-second
+    xTaskCreate(readUART, "Read UART", 256, NULL, 2, readUART_h);
+    // TODO: xTaskCreate(heartbeat, "HEARTBEAT", 256, NULL, 1, NULL); // test function to send heartbeat every half-second
 
 	#if DEBUG
     	SERCOM_USB.println("INITIALIZED COMMAND MONITOR");
@@ -295,7 +298,7 @@ void init_rtos_architecture(void){
 		#if DEBUG
 	    	SERCOM_USB.println("REQUESTED: INITIALIZE RTOS TEST SUITE");
 		#endif
-    	create_test_tasks(); // if we are in test mode, create the tasks
+    	// TODO: create_test_tasks(); // if we are in test mode, create the tasks
     #endif
 
 }
@@ -319,22 +322,57 @@ static void readUART(void *pvParameters)
 	TEScommand cmd_packet;
 	ADCSdata response;
 	uint8_t mode;
+	uint8_t rx_buf[COMMAND_LEN];
+	int rx_bytes;
 
 	#if DEBUG
-    	char cmd_str[8];  // used to print command value to serial monitor
+    	char debug_str[8];  // used to print command value to serial monitor
 	#endif
 
     while (1)
     {
-        if (SERCOM_UART.available())  // at least one byte is in the UART
+    	//SERCOM_USB.println("READ UART ALIVE");
+    	#if DEBUG
+
+    		SERCOM_USB.println("[READ UART] checked uart buffer");
+	    	if(!SERCOM_UART){
+	    		SERCOM_USB.println("\tUART IS DEAD");
+	    	}
+
+	    #endif
+
+		int rx_len = SERCOM_UART.available();
+
+        if (rx_len > 0)  // at least one byte is in the UART
         {							  // receive buffer
 
-            // copy one byte out of UART receive buffer
-			cmd_packet.addByte((uint8_t)SERCOM_UART.read());
+        	#if DEBUG
+	        	sprintf(debug_str, "%d", rx_len);
+	            SERCOM_USB.write("[command rx]\tDetected ");
+	            SERCOM_USB.write(debug_str);
+	            SERCOM_USB.write(" bytes in UART rx buffer\r\n");
+	    	#endif 
 
-			if (cmd_packet.isFull())  // full command packet received
+			rx_bytes = SERCOM_UART.readBytes(rx_buf, COMMAND_LEN);
+
+			#ifdef DEBUG
+	            sprintf(debug_str, "%d", rx_bytes);
+	            SERCOM_USB.write("[command rx]\tReceived ");
+	            SERCOM_USB.write(debug_str);
+	            SERCOM_USB.write(" bytes:");
+	            for (int i = 0; i < rx_bytes; i++)
+	            {
+	                sprintf(debug_str, " %02x", rx_buf[i]);
+	                SERCOM_USB.write(debug_str);
+	            }
+	            SERCOM_USB.write("\r\n");
+			#endif	
+
+			if (rx_bytes == COMMAND_LEN)  // full command packet received
             {
-				if (cmd_packet.checkCRC())
+        		cmd_packet.copyBytes(rx_buf);	
+				state_machine_transition(cmd_packet); // publish mode, get ready to enter it too
+				/*if (cmd_packet.checkCRC())
 				{
 					state_machine_transition(cmd_packet); // publish mode, get ready to enter it too
 				}
@@ -344,23 +382,8 @@ static void readUART(void *pvParameters)
 					response.setStatus(STATUS_COMM_ERROR);
 					response.computeCRC();
 					response.send();
-				}
+				}*/
 
-				#if DEBUG
-	                // convert int to string for USB monitoring
-	                sprintf(cmd_str, "0x%02x", cmd_packet.getCommand());
-
-	                // print command value to USB
-	                SERCOM_USB.print("Command received: ");
-	                SERCOM_USB.print(cmd_str);
-	                SERCOM_USB.print("\r\n");
-
-	                if (cmd_packet.getCommand() == CMD_HEARTBEAT)
-	                    SERCOM_USB.print("Entering heartbeat only mode\r\n");
-
-	                if (cmd_packet.getCommand() == CMD_STANDBY)
-	                    SERCOM_USB.print("Entering standby mode\r\n");
-				#endif
             }
         }
 
@@ -391,6 +414,10 @@ static void heartbeat(void *pvParameters)
 
     while (1)
     {
+    	#if DEBUG
+    		SERCOM_USB.println("[HEARTBEAT] checked mode");
+    	#endif
+
         xQueuePeek(modeQ, (void*)&mode, (TickType_t)0);
 
         if (mode == CMD_HEARTBEAT)
@@ -400,9 +427,9 @@ static void heartbeat(void *pvParameters)
             readINA(data_packet);
             data_packet.computeCRC();
             data_packet.send();  // send to TES
-            #ifdef DEBUG
+            #if DEBUG
                 SERCOM_USB.write("[HEARTBEAT] wrote to UART\r\n");
-                //printScaledAGMT(&IMU1);
+                if(!TEST_CONTROL_FLOW) printScaledAGMT(&IMU1);
             #endif
 
             data_packet.clear();
@@ -420,8 +447,9 @@ void state_machine_transition(TEScommand cmand){
 	uint8_t mode = cmand.getCommand();
 	uint8_t curr_mode = CMD_STANDBY; 
 	// get the current state to compare against	
-	xQueuePeek(modeQ, (void*)curr_mode, 0);
+	xQueuePeek(modeQ, &curr_mode, 0);
 	// make sure we are entering a new state
+	
 	if(mode == curr_mode){ // if not, exit
 		return;
 	}
@@ -440,7 +468,9 @@ void state_machine_transition(TEScommand cmand){
 		case CMD_TST_BASIC_AC:
 		case CMD_TST_SIMPLE_DETUMBLE:
 		case CMD_TST_SIMPLE_ORIENT:
-			create_test_tasks();
+			#if RTOS_TEST_SUITE 
+				create_test_tasks();
+			#endif
 			break;
 
 		case CMD_STANDBY:

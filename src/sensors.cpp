@@ -68,16 +68,6 @@ void readINA(ADCSdata &data_packet)
 	current = i_raw / 10;
 
 	data_packet.setINAdata(voltage, current);
-
-	char debug_str[32];
-	sprintf(debug_str, "%d", v_raw);
-	SERCOM_USB.write("Bus voltage: ");
-	SERCOM_USB.write(debug_str);
-	SERCOM_USB.write(" mV\r\n");
-	sprintf(debug_str, "%d", i_raw*100);
-	SERCOM_USB.write("Shunt current: ");
-	SERCOM_USB.write(debug_str);
-	SERCOM_USB.write(" uA\r\n");
 }
 
 void printPaddedInt16b(int16_t val)

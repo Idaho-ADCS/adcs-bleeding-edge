@@ -23,6 +23,14 @@ void TEScommand::addByte(uint8_t b)
 	}
 }
 
+void TEScommand::copyBytes(uint8_t *bytes)
+{
+    for (int i = 0; i < COMMAND_LEN; i++)
+    {
+        _data[i] = bytes[i];
+    }
+}
+
 bool TEScommand::isFull()
 {
 	return _full;

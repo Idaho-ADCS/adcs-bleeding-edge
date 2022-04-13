@@ -13,7 +13,7 @@
 
 // packet sizes in bytes
 #define COMMAND_LEN 4
-#define PACKET_LEN  12
+#define PACKET_LEN  14
 
 // command values
 enum Command : uint8_t
@@ -94,6 +94,7 @@ public:
 	 * 
 	 */
 	void    addByte(uint8_t b);
+	void    copyBytes(uint8_t *bytes);  // add this line
 	bool    isFull();
 	uint8_t getCommand();
 	bool    checkCRC();
@@ -113,7 +114,7 @@ private:
 			// Data can be accessed as fields - used to build packet
 			uint8_t    _status;
 			fixed5_3_t _voltage;
-			int8_t     _current;
+			int16_t     _current;
 			uint8_t    _speed;
 			int8_t     _magX;
 			int8_t	   _magY;
